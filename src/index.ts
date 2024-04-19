@@ -1,17 +1,59 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
-export class CacheApi {
-  basePath: string;
-  savePath: string;
-  maxAge?: number;  // Make maxAge optional and undefined by default
+/**
+ * CacheApi handles caching of API responses to the filesystem. It allows fetching data and storing it locally,
+ * with optional expiration based on age.
+ */
+class CacheApi {
+  /**
+   * Base API URL used for making requests.
+   */
+  private basePath: string;
 
+  /**
+   * Directory path where cached data will be stored.
+   */
+  private savePath: string;
+
+  /**
+   * Maximum age of cache files in seconds. If set, cached files older than this age will be refetched.
+   * If not set, cached files are stored indefinitely.
+   */
+  private maxAge?: number;
+
+  /**
+   * Creates an instance of CacheApi.
+   * @param basePath - The base URL for the API requests.
+   * @param savePath - The filesystem path where responses will be cached.
+   * @param maxAge - Optional maximum age in seconds for the cache validity.
+   */
   constructor(basePath: string, savePath: string, maxAge?: number) {
     this.basePath = basePath;
     this.savePath = savePath;
-    this.maxAge = maxAge; // maxAge is optional; if not provided, cache indefinitely
+    this.maxAge = maxAge;
   }
 
+  private sanitizeFilename(input: string): string {
+    // Matches disallowed characters and replaces them with '_'
+    let filename = input.replace(/[\/*?:"<>|\\]/g, "_").replace(/\s+/g, "_");
+
+    // Remove leading underscores
+    filename = filename.replace(/^_+/, "");
+
+    return filename;
+  }
+
+  /**
+   * Fetches data from the API or cache based on the URL path and options provided.
+   * If a valid cache exists and is within the specified maxAge, the cached data is returned.
+   * Otherwise, data is fetched from the API and cached.
+   *
+   * @param urlPath - The API endpoint to fetch data from.
+   * @param folderName - The folder within the savePath where the data should be cached.
+   * @param option - Optional fetch request configuration.
+   * @returns A Promise resolving to the fetched (or cached) data.
+   */
   async get(
     urlPath: string,
     folderName: string,
@@ -19,9 +61,13 @@ export class CacheApi {
   ): Promise<any> {
     const url = `${this.basePath}/${urlPath}`;
     const folderPath = path.join(this.savePath, folderName);
-    const fileName = encodeURIComponent(urlPath) + ".json";
+    const fileName =
+      decodeURIComponent(this.sanitizeFilename(urlPath)) + ".json";
     const filePath = path.join(folderPath, fileName);
-    const metaDataPath = path.join(folderPath, encodeURIComponent(urlPath) + ".meta.json");
+    const metaDataPath = path.join(
+      folderPath,
+      decodeURIComponent(this.sanitizeFilename(urlPath)) + ".meta.json"
+    );
 
     // Ensure the directory exists
     if (!fs.existsSync(folderPath)) {
@@ -29,25 +75,24 @@ export class CacheApi {
     }
 
     if (fs.existsSync(filePath)) {
-      if (this.maxAge) {  // Check maxAge only if it is defined
+      if (this.maxAge) {
         if (fs.existsSync(metaDataPath)) {
           try {
             const metaData = JSON.parse(fs.readFileSync(metaDataPath, "utf-8"));
             const now = new Date().getTime();
             const lastFetched = new Date(metaData.lastFetched).getTime();
-            if ((now - lastFetched) < this.maxAge * 1000) {
+            if (now - lastFetched < this.maxAge * 1000) {
               const fileContents = fs.readFileSync(filePath, "utf-8");
-              return JSON.parse(fileContents);  // Return the cached JSON data if within maxAge
+              return JSON.parse(fileContents);
             }
           } catch (error) {
             console.error("Failed to read or parse meta file:", error);
-            // Proceed to fetch new data if error occurs
           }
         }
       } else {
         try {
           const fileContents = fs.readFileSync(filePath, "utf-8");
-          return JSON.parse(fileContents);  // Return the cached JSON data indefinitely
+          return JSON.parse(fileContents);
         } catch (error) {
           console.error("Failed to read from cache file:", error);
           throw error;
@@ -55,7 +100,6 @@ export class CacheApi {
       }
     }
 
-    // Fetch new data if the cache is not fresh or no cache exists
     try {
       const response = await fetch(url, option);
       if (!response.ok) {
@@ -63,10 +107,13 @@ export class CacheApi {
       }
       const data = await response.json();
 
-      // Save the fetched data and the current timestamp to the cache
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
       const metaData = { lastFetched: new Date().toISOString() };
-      fs.writeFileSync(metaDataPath, JSON.stringify(metaData, null, 2), "utf-8");
+      fs.writeFileSync(
+        metaDataPath,
+        JSON.stringify(metaData, null, 2),
+        "utf-8"
+      );
 
       return data;
     } catch (error) {
@@ -75,3 +122,5 @@ export class CacheApi {
     }
   }
 }
+
+export { CacheApi };
