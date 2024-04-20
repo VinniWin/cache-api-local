@@ -1,6 +1,6 @@
-import { CacheApi } from "../src/index1"
+import { CacheApi } from "../src"
 
 const ss=new CacheApi('https://jsonplaceholder.typicode.com','./data')
 
 
-ss.get('/photos/1?t=12','photo')
+ss.getData('/photos/1?t=12','photo')

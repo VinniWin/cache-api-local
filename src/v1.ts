@@ -44,11 +44,20 @@ class CacheApi {
     return filename;
   }
 
-  async getData(
+  /**
+   * Fetches data from the API or cache based on the URL path and options provided.
+   * If a valid cache exists and is within the specified maxAge, the cached data is returned.
+   * Otherwise, data is fetched from the API and cached.
+   *
+   * @param urlPath - The API endpoint to fetch data from.
+   * @param folderName - The folder within the savePath where the data should be cached.
+   * @param option - Optional fetch request configuration.
+   * @returns A Promise resolving to the fetched (or cached) data.
+   */
+  async get(
     urlPath: string,
     folderName: string,
-    option: RequestInit = {},
-    skipCheck: boolean = false
+    option: RequestInit = {}
   ): Promise<any> {
     const url = `${this.basePath}/${urlPath}`;
     const folderPath = path.join(this.savePath, folderName);
@@ -60,39 +69,7 @@ class CacheApi {
       decodeURIComponent(this.sanitizeFilename(urlPath)) + ".meta.json"
     );
 
-    if (!skipCheck) {
-      await this.checkExistFileAndServeCache(
-        folderPath,
-        filePath,
-        metaDataPath,
-        urlPath,
-        folderName
-      );
-    }
-
-    try {
-      const response = await fetch(url, option);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data) {
-        this.saveData(filePath, data, metaDataPath);
-      }
-    } catch (error) {
-      console.error("Failed to fetch and save data:", error);
-      throw error;
-    }
-  }
-
-  private async checkExistFileAndServeCache(
-    folderPath: string,
-    filePath: string,
-    metaDataPath: string,
-    url: string,
-    folderName: string
-  ) {
+    // Ensure the directory exists
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
@@ -107,8 +84,6 @@ class CacheApi {
             if (now - lastFetched < this.maxAge * 1000) {
               const fileContents = fs.readFileSync(filePath, "utf-8");
               return JSON.parse(fileContents);
-            } else {
-              this.getData(url, folderName, {}, true);
             }
           } catch (error) {
             console.error("Failed to read or parse meta file:", error);
@@ -124,10 +99,14 @@ class CacheApi {
         }
       }
     }
-  }
 
-  private async saveData(filePath: string, data: any, metaDataPath: string) {
     try {
+      const response = await fetch(url, option);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
       const metaData = { lastFetched: new Date().toISOString() };
       fs.writeFileSync(
@@ -135,8 +114,10 @@ class CacheApi {
         JSON.stringify(metaData, null, 2),
         "utf-8"
       );
+
+      return data;
     } catch (error) {
-      console.error("Failed while saving data:", error);
+      console.error("Failed to fetch and save data:", error);
       throw error;
     }
   }
