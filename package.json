@@ -1,6 +1,6 @@
 {
-  "name": "cache-api",
-  "version": "1.0.2",
+  "name": "cache-api-local",
+  "version": "1.0.3",
   "description": "A lib to use for caching the api res so your load to serve minimize.",
   "scripts": {
     "rollup": "rollup -c --bundleConfigAsCjs"
@@ -9,9 +9,10 @@
     "api",
     "cache",
     "cache-api",
-    "api-cache"
+    "api-cache",
+    "local-cache"
   ],
-  "author": "vinni",
+  "author": "vinni0786",
   "license": "ISC",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -31,5 +32,52 @@
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/"
-  }  
+  },
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "ansi-styles": "^3.2.1",
+    "balanced-match": "^1.0.2",
+    "brace-expansion": "^2.0.1",
+    "builtin-modules": "^3.3.0",
+    "chalk": "^2.4.2",
+    "color-convert": "^1.9.3",
+    "color-name": "^1.1.3",
+    "commondir": "^1.0.1",
+    "deepmerge": "^4.3.1",
+    "escape-string-regexp": "^1.0.5",
+    "estree-walker": "^2.0.2",
+    "fs.realpath": "^1.0.0",
+    "function-bind": "^1.1.2",
+    "glob": "^8.1.0",
+    "has-flag": "^3.0.0",
+    "hasown": "^2.0.2",
+    "inflight": "^1.0.6",
+    "inherits": "^2.0.4",
+    "is-builtin-module": "^3.2.1",
+    "is-core-module": "^2.13.1",
+    "is-module": "^1.0.0",
+    "is-reference": "^1.2.1",
+    "js-tokens": "^4.0.0",
+    "magic-string": "^0.30.9",
+    "minimatch": "^5.1.6",
+    "once": "^1.4.0",
+    "path-parse": "^1.0.7",
+    "picocolors": "^1.0.0",
+    "picomatch": "^2.3.1",
+    "resolve": "^1.22.8",
+    "supports-color": "^5.5.0",
+    "supports-preserve-symlinks-flag": "^1.0.0",
+    "undici-types": "^5.26.5",
+    "wrappy": "^1.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VinniWin/cache-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VinniWin/cache-api/issues"
+  },
+  "homepage": "https://github.com/VinniWin/cache-api#readme"
 }
