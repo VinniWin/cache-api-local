@@ -5,7 +5,7 @@
 ## Coding Example
 
 ```javascript
-import { CacheApi } from "cache-api-local";
+import CacheApi from "cache-api-local";
 
 const ss = new CacheApi("https://jsonplaceholder.typicode.com", "./data", 100);
                         
