@@ -14,4 +14,6 @@ ss.getData("/photos/1?t=12", "photo");
 
 # Props
 
+```
 new CacheApi(baseUrl,saveFolderName,revalidate_time_in_sec)
+```
