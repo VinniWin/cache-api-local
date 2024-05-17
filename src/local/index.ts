@@ -15,7 +15,7 @@ class CacheApi {
   /**
    * Directory path where cached data will be stored.
    */
-  private savePath: string;
+  private saveFolderName: string;
 
   /**
    * Maximum age of cache files in seconds. If set, cached files older than this age will be refetched.
@@ -26,12 +26,12 @@ class CacheApi {
   /**
    * Creates an instance of CacheApi.
    * @param basePath - The base URL for the API requests.
-   * @param savePath - The filesystem path where responses will be cached.
+   * @param saveFolderName - The filesystem path where responses will be cached.
    * @param maxAge - Optional maximum age in seconds for the cache validity.
    */
-  constructor(basePath: string, savePath: string, maxAge?: number) {
+  constructor(basePath: string, saveFolderName: string, maxAge?: number) {
     this.basePath = basePath;
-    this.savePath = savePath;
+    this.saveFolderName = saveFolderName;
     this.maxAge = maxAge;
   }
 
@@ -52,7 +52,7 @@ class CacheApi {
     skipCheck: boolean = false
   ): Promise<any> {
     const url = `${this.basePath}/${urlPath}`;
-    const folderPath = path.join(this.savePath, folderName);
+    const folderPath = path.join(this.saveFolderName, folderName);
     const fileName =
       decodeURIComponent(this.sanitizeFilename(urlPath)) + ".json";
     const filePath = path.join(folderPath, fileName);
