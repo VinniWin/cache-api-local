@@ -1,4 +1,4 @@
-import { CacheApi } from "../src/local"
+import  CacheApi  from "../src"
 
 const ss=new CacheApi('https://jsonplaceholder.typicode.com','data',100)
 
