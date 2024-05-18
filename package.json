@@ -1,7 +1,7 @@
 {
   "name": "cache-api-local",
   "version": "1.0.0",
-  "description": "A lib to use for caching the api res so your load to serve minimize.",
+  "description": "A lib to use for caching the api res so your load to serve minimize. Plus it has revalidating feature 🔥🔥",
   "scripts": {
     "rollup": "rollup -c --bundleConfigAsCjs"
   },
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "^20.12.7",
     "rollup": "^4.14.3",
@@ -30,7 +31,6 @@
     "tslib": "^2.6.2",
     "typescript": "^5.4.5"
   },
- 
   "directories": {
     "test": "test"
   },
