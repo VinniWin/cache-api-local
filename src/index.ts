@@ -1,187 +1,144 @@
 import * as fs from "fs";
 import * as path from "path";
 
+/**
+ * Resolves the directory of the calling file.
+ */
+function getCallerFileDir(): string {
+  const originalPrepareStackTrace = Error.prepareStackTrace;
+  let callerFile: string | undefined;
+
+  try {
+    const err = new Error();
+    Error.prepareStackTrace = (_, stack) => stack;
+    const callSites = err.stack as unknown as NodeJS.CallSite[];
+
+    if (callSites?.length > 2) {
+      callerFile = callSites[2].getFileName() ?? undefined;
+    }
+  } catch (e) {
+    console.error("Error determining caller directory:", e);
+  } finally {
+    Error.prepareStackTrace = originalPrepareStackTrace;
+  }
+
+  if (callerFile?.startsWith("file:///")) {
+    let filePath = new URL(callerFile).pathname;
+    if (process.platform === "win32" && filePath.startsWith("/")) {
+      filePath = filePath.slice(1); // Remove leading slash on Windows
+    }
+    return path.dirname(filePath);
+  }
+
+  return callerFile ? path.dirname(callerFile) : process.cwd();
+}
+
 class CacheApi {
-  /**
-   * Base API URL used for making requests.
-   */
-  private basePath: string;
+  readonly basePath: string;
+  readonly actualBaseCachePath: string;
+  readonly maxAge?: number;
 
-  /**
-   * Directory path where cached data will be stored.
-   */
-  private saveFolderName: string;
-
-  /**
-   * Maximum age of cache files in seconds. If set, cached files older than this age will be refetched.
-   * If not set, cached files are stored indefinitely.
-   */
-  private maxAge?: number;
-
-  /**
-   * Creates an instance of CacheApi.
-   * @param basePath - The base URL for the API requests.
-   * @param saveFolderName - The filesystem path where responses will be cached.
-   * @param maxAge - Optional maximum age in seconds for the cache validity.
-   */
-  constructor(basePath: string, saveFolderName: string, maxAge?: number) {
+  constructor(
+    basePath: string,
+    relativeCacheFolderName: string,
+    maxAge?: number
+  ) {
     this.basePath = basePath;
-    this.saveFolderName = saveFolderName;
+    const callerDir = getCallerFileDir();
+    this.actualBaseCachePath = path.resolve(callerDir, relativeCacheFolderName);
     this.maxAge = maxAge;
   }
 
   private sanitizeFilename(input: string): string {
-    // Matches disallowed characters and replaces them with '_'
-    let filename = input.replace(/[\/*?:"<>|\\]/g, "_").replace(/\s+/g, "_");
+    return input
+      .replace(/[\/*?:"<>|\\]/g, "_")
+      .replace(/\s+/g, "_")
+      .replace(/^_+/, "");
+  }
 
-    // Remove leading underscores
-    filename = filename.replace(/^_+/, "");
+  private readJSONSafe(filePath: string): any {
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
+  }
 
-    return filename;
+  private writeJSON(filePath: string, data: any) {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+  }
+
+  private getFilePaths(urlPath: string, subFolder: string) {
+    const fileName =
+      this.sanitizeFilename(decodeURIComponent(urlPath)) + ".json";
+    const dirPath = path.join(this.actualBaseCachePath, subFolder);
+    return {
+      dirPath,
+      dataPath: path.join(dirPath, fileName),
+      metaPath: path.join(dirPath, fileName.replace(".json", ".meta.json")),
+    };
   }
 
   async getData(
     urlPath: string,
-    folderName: string,
-    option: RequestInit = {},
-    skipCheck: boolean = false
+    subFolder: string,
+    options: RequestInit = {},
+    bypassCacheCheck = false
   ): Promise<any> {
-    const url = `${this.basePath}/${urlPath}`;
-    const folderPath = path.join(this.saveFolderName, folderName);
-    const fileName =
-      decodeURIComponent(this.sanitizeFilename(urlPath)) + ".json";
-    const filePath = path.join(folderPath, fileName);
-    const metaDataPath = path.join(
-      folderPath,
-      decodeURIComponent(this.sanitizeFilename(urlPath)) + ".meta.json"
+    const fullUrl = `${this.basePath}/${urlPath}`;
+    const { dirPath, dataPath, metaPath } = this.getFilePaths(
+      urlPath,
+      subFolder
     );
 
-    if (!skipCheck) {
-      return await this.checkExistFileAndServeCache(
-        folderPath,
-        filePath,
-        metaDataPath,
-        urlPath,
-        folderName
-      );
+    if (!bypassCacheCheck) {
+      const cache = this.checkAndReadFromCache(dataPath, metaPath);
+      if (cache !== null) return cache;
     }
-    try {
-      const response = await fetch(url, option);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    try {
+      const response = await fetch(fullUrl, options);
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
       const data = await response.json();
-      if (data) {
-        this.saveData(filePath, data, metaDataPath);
-      }
+      this.ensureDirExists(dirPath);
+      this.writeJSON(dataPath, data);
+      this.writeJSON(metaPath, { lastFetched: Date.now() });
       return data;
-    } catch (error) {
-      const fileContents = fs.readFileSync(filePath, "utf-8");
-      if (fileContents) {
-        return JSON.parse(fileContents);
-      } //if file exist and give error serve file
-      console.error("Failed to fetch and save data:", error);
-      throw error;
+    } catch (err) {
+      console.warn(`Fetch failed for ${fullUrl}, trying cache fallback...`);
+      const fallback = this.readJSONSafe(dataPath);
+      if (fallback) return fallback;
+      console.error("Cache fallback also failed:", err);
+      throw err;
     }
   }
 
-  private async checkExistFileAndServeCache(
-    folderPath: string,
-    filePath: string,
-    metaDataPath: string,
-    url: string,
-    folderName: string
-  ) {
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
+  private checkAndReadFromCache(
+    dataPath: string,
+    metaPath: string
+  ): any | null {
+    if (!fs.existsSync(dataPath)) return null;
+
+    if (!this.maxAge) return this.readJSONSafe(dataPath);
+
+    const meta = this.readJSONSafe(metaPath);
+    if (!meta?.lastFetched) return this.readJSONSafe(dataPath);
+
+    const ageSeconds = (Date.now() - meta.lastFetched) / 1000;
+    if (ageSeconds < this.maxAge) {
+      return this.readJSONSafe(dataPath);
     }
 
-    if (fs.existsSync(filePath)) {
-      if (this.maxAge) {
-        if (fs.existsSync(metaDataPath)) {
-          try {
-            const metaData = JSON.parse(
-              fs.readFileSync(metaDataPath, "utf-8")
-            ) as { lastFetched: number };
-            const timestamp = new Date().getTime();
-            const diff = Math.abs(
-              Number(
-                this.diff_in_unit(timestamp, metaData.lastFetched, "seconds")
-              )
-            );
-            if (diff < this.maxAge) {
-              const fileContents = fs.readFileSync(filePath, "utf-8");
-              return JSON.parse(fileContents);
-            } else {
-              return await this.getData(url, folderName, {}, true);
-            }
-          } catch (error) {
-            const fileContents = fs.readFileSync(filePath, "utf-8");
-            if (fileContents) {
-              return JSON.parse(fileContents);
-            } //if file exist and give error serve file
-            console.error("Failed to read or parse meta file:", error);
-          }
-        }
-      } else {
-        try {
-          const fileContents = fs.readFileSync(filePath, "utf-8");
-          return JSON.parse(fileContents);
-        } catch (error) {
-          console.error("Failed to read from cache file:", error);
-          throw error;
-        }
-      }
-    } else {
-      return await this.getData(url, folderName, {}, true);
-    }
+    return null; // Cache is stale
   }
 
-  private async saveData(filePath: string, data: any, metaDataPath: string) {
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-      const metaData = { lastFetched: new Date().getTime() };
-      fs.writeFileSync(
-        metaDataPath,
-        JSON.stringify(metaData, null, 2),
-        "utf-8"
-      );
-    } catch (error) {
-      console.error("Failed while saving data:", error);
-      throw error;
-    }
-  }
-
-  private diff_in_unit(
-    timestamp: number,
-    metaData: number,
-    unit: "seconds" | "minutes" | "hours" | "days" = "seconds"
-  ) {
-    // Convert milliseconds to base units (seconds)
-    let timestamp_seconds = timestamp / 1000;
-    let sec_seconds = metaData / 1000;
-
-    // Calculate the difference in seconds
-    let difference = timestamp_seconds - sec_seconds;
-
-    // Handle unit conversion
-    switch (unit.toLowerCase()) {
-      case "seconds":
-        return difference.toFixed(2);
-      case "minutes":
-        let minutes = difference / 60;
-        return minutes.toFixed(2);
-      case "hours":
-        let hours = difference / (60 * 60);
-        return hours.toFixed(2);
-      case "days":
-        let days = difference / (60 * 60 * 24);
-        return days.toFixed(2);
-      default:
-        throw new Error("Invalid unit: " + unit);
+  private ensureDirExists(dir: string) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
   }
 }
 
-export default CacheApi ;
+export default CacheApi;

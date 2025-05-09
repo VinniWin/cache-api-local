@@ -1,6 +1,6 @@
 {
   "name": "cache-api-local",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A lib to use for caching the api res so your load to serve minimize. Plus it has revalidating feature 🔥🔥",
   "scripts": {
     "rollup": "rollup -c --bundleConfigAsCjs"
