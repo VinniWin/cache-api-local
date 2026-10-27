@@ -1,39 +1,19 @@
 {
   "name": "cache-api-local",
-  "version": "1.1.1",
-  "description": "A lib to use for caching the api res so your load to serve minimize. Plus it has revalidating feature 🔥🔥",
-  "scripts": {
-    "rollup": "rollup -c --bundleConfigAsCjs"
-  },
+  "version": "2.0.0",
+  "description": "Tiny, zero-dependency fetch cache with stale-while-revalidate, request dedupe and pluggable storage (memory, filesystem, or your own).",
   "keywords": [
     "api",
     "cache",
-    "cache-api",
-    "api-cache",
+    "fetch",
+    "http-cache",
+    "stale-while-revalidate",
+    "swr",
+    "dedupe",
     "local-cache"
   ],
   "author": "vinni0786",
   "license": "ISC",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
-  "files": [
-    "dist"
-  ],
-  "types": "dist/index.d.ts",
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^11.1.6",
-    "@types/node": "^20.12.7",
-    "rollup": "^4.14.3",
-    "rollup-plugin-dts": "^6.1.0",
-    "tslib": "^2.6.2",
-    "typescript": "^5.4.5"
-  },
-  "directories": {
-    "test": "test"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/VinniWin/cache-api.git"
@@ -41,5 +21,52 @@
   "bugs": {
     "url": "https://github.com/VinniWin/cache-api/issues"
   },
-  "homepage": "https://github.com/VinniWin/cache-api#readme"
+  "homepage": "https://github.com/VinniWin/cache-api#readme",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./fs": {
+      "import": {
+        "types": "./dist/fs.d.mts",
+        "default": "./dist/fs.mjs"
+      },
+      "require": {
+        "types": "./dist/fs.d.cts",
+        "default": "./dist/fs.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test",
+    "prepublishOnly": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/node": "^20.12.7",
+    "rollup": "^4.14.3",
+    "rollup-plugin-dts": "^6.1.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  }
 }
