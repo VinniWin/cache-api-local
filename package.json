@@ -1,6 +1,6 @@
 {
   "name": "cache-api-local",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Tiny, zero-dependency fetch cache with stale-while-revalidate, request dedupe and pluggable storage (memory, filesystem, or your own).",
   "keywords": [
     "api",
