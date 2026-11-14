@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+No breaking changes. Existing code and existing `fsStore` cache folders keep working.
+
+### Added
+
+- `etag` option (off by default): stores the response's `ETag`, sends it as `If-None-Match` on refresh, and reuses the cached value on a `304`.
+- `Entry.etag`, an optional field. Custom stores that save the whole entry need no change. `fsStore` files gain an `etag` property only when the option is on.
+- Tags: `get(path, { tags })`, `set(path, value, { tags })` and `api.invalidateTag(tag)` drop a group of entries at once. Works with every store, with no change to the `Store` interface.
+- `api.subscribe(path, callback)`: called with every new value, including background refreshes.
+- `cacheControl` option (off by default): the response's `Cache-Control` (`max-age`, `no-cache`, `no-store`) sets freshness per entry.
+- `Entry.tags` and `Entry.maxAge`, optional fields, saved by `fsStore` and `webStore` only when used.
+- `api.peek(path)` and `api.set(path, value)`: read and write the cache without a network call, for optimistic updates and prefilling.
+- `fsStore(dir, { ttl })`: entries older than `ttl` seconds read as a miss and their files are deleted. Default is unchanged (kept forever).
+- `webStore()` from the new `cache-api-local/web` entry: persists entries in `localStorage` or any `Storage`.
+
+### Changed
+
+- The core grew from about 1.5 KB to about 2 KB gzipped.
+- `Entry.time` values written by one `CacheApi` instance are now strictly increasing, so two writes in the same millisecond differ by 1 ms. This is what orders a `set` after an `invalidateTag`.
+
 ## 2.0.0
 
 Rewrite. Same idea, new API: runtime-agnostic storage, stale-while-revalidate, and request dedupe.

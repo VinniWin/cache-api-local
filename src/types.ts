@@ -5,6 +5,12 @@ export interface Entry<T = unknown> {
   value: T;
   /** Epoch milliseconds when the value was fetched. */
   time: number;
+  /** The response's `ETag`, kept only when the `etag` option is on. Stores must hand it back unchanged. */
+  etag?: string;
+  /** Tags given to the `get` or `set` that produced the entry. Stores must hand them back unchanged. */
+  tags?: string[];
+  /** Seconds of freshness the server asked for, kept only when the `cacheControl` option is on. */
+  maxAge?: number;
 }
 
 /** Storage backend. Sync or async; implement these four methods to cache anywhere. */
@@ -28,6 +34,17 @@ export interface CacheOptions {
   staleWhileRevalidate?: number;
   /** Return the cached entry, however old, when the request fails. Default: `true`. */
   staleIfError?: boolean;
+  /**
+   * Remember each response's `ETag` and send it as `If-None-Match` on the next refresh, so an unchanged
+   * resource answers `304` with no body. Default: `false`, because in browsers the header makes
+   * cross-origin requests preflight and the server must allow it.
+   */
+  etag?: boolean;
+  /**
+   * Let the response's `Cache-Control` decide freshness: `max-age=N` (less `Age`) replaces `maxAge` for that
+   * entry, `no-cache` makes it always stale, and `no-store` keeps it out of the store. Default: `false`.
+   */
+  cacheControl?: boolean;
   /** Custom fetch implementation. Default: the global `fetch`. */
   fetch?: FetchLike;
   /** Turns a response into the value to cache. Default: `res.json()`. */
@@ -37,7 +54,9 @@ export interface CacheOptions {
 }
 
 export interface GetOptions extends RequestInit {
-  /** Overrides `CacheOptions.maxAge` for this call. */
+  /** Labels stored with the entry, so `invalidateTag` can drop a whole group at once. */
+  tags?: string[];
+  /** Overrides `CacheOptions.maxAge`, and the server's `max-age`, for this call. */
   maxAge?: number;
   /** Overrides `CacheOptions.staleWhileRevalidate` for this call. */
   staleWhileRevalidate?: number;

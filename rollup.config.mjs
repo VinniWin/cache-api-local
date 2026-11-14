@@ -2,7 +2,7 @@ import typescript from "@rollup/plugin-typescript";
 import { dts } from "rollup-plugin-dts";
 
 // One build per public entry point so `fs` never leaks into the core bundle.
-const entries = ["index", "fs"];
+const entries = ["index", "fs", "web"];
 const external = [/^node:/];
 
 export default entries.flatMap((name) => [

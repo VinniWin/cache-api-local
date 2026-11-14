@@ -8,4 +8,5 @@ test("CommonJS entry points load", () => {
   assert.equal(typeof core.HttpError, "function");
   assert.equal(typeof core.memoryStore, "function");
   assert.equal(typeof fs.fsStore, "function");
+  assert.equal(typeof require("cache-api-local/web").webStore, "function");
 });

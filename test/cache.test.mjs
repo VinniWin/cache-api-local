@@ -131,6 +131,33 @@ test("invalidate and clear remove entries", async () => {
   assert.equal(server.state.hits, 5);
 });
 
+test("peek reads the cache without fetching", async () => {
+  const cache = api();
+  assert.equal(await cache.peek("/a"), undefined);
+  assert.equal(server.state.hits, 0);
+  await cache.get("/a");
+  assert.deepEqual(await cache.peek("/a"), { n: 1, method: "GET" });
+  assert.equal(server.state.hits, 1);
+});
+
+test("set stores a value that get then serves", async () => {
+  const cache = api();
+  const init = { headers: { Authorization: "Bearer alice" } };
+  await cache.set("/me", { name: "alice" }, init);
+  assert.deepEqual(await cache.get("/me", init), { name: "alice" });
+  assert.equal(await cache.peek("/me"), undefined);
+  assert.equal(server.state.hits, 0);
+});
+
+test("set during a request stops it overwriting the value", async () => {
+  const cache = api();
+  const pending = cache.get("/slow");
+  await sleep(10);
+  await cache.set("/slow", "mine");
+  await pending;
+  assert.equal(await cache.peek("/slow"), "mine");
+});
+
 test("custom key, fetch and parse", async () => {
   const calls = [];
   const cache = new CacheApi({
@@ -248,6 +275,39 @@ test("non-GET requests honour the caller's signal", async () => {
   controller.abort();
   await assert.rejects(pending, { name: "AbortError" });
   await sleep(80);
+});
+
+test("etag: a 304 keeps the cached value and makes it fresh again", async () => {
+  const cache = api({ etag: true, maxAge: 0.05 });
+  await cache.get("/etag");
+  await sleep(80);
+  assert.deepEqual(await cache.get("/etag"), { n: 1, method: "GET" });
+  assert.equal(server.state.hits, 2);
+  assert.deepEqual(await cache.get("/etag"), { n: 1, method: "GET" });
+  assert.equal(server.state.hits, 2);
+});
+
+test("etag: a changed resource is downloaded again", async () => {
+  const cache = api({ etag: true, maxAge: 0.05 });
+  await cache.get("/etag");
+  await sleep(80);
+  server.state.etag = '"v2"';
+  assert.deepEqual(await cache.get("/etag"), { n: 2, method: "GET" });
+});
+
+test("etag: force downloads even when the resource is unchanged", async () => {
+  const cache = api({ etag: true });
+  await cache.get("/etag");
+  assert.deepEqual(await cache.get("/etag", { force: true }), { n: 2, method: "GET" });
+});
+
+test("etag is off by default", async () => {
+  const store = memoryStore();
+  const cache = api({ store, maxAge: 0.05 });
+  await cache.get("/etag");
+  await sleep(80);
+  assert.deepEqual(await cache.get("/etag"), { n: 2, method: "GET" });
+  assert.deepEqual(Object.keys(store.get(server.url + "/etag")).sort(), ["time", "value"]);
 });
 
 test("memoryStore is capped at 1000 entries by default", () => {

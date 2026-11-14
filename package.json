@@ -50,6 +50,16 @@
         "default": "./dist/fs.cjs"
       }
     },
+    "./web": {
+      "import": {
+        "types": "./dist/web.d.mts",
+        "default": "./dist/web.mjs"
+      },
+      "require": {
+        "types": "./dist/web.d.cts",
+        "default": "./dist/web.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
